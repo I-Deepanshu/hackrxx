@@ -9,6 +9,8 @@ from app.db import SessionLocal, engine, Base
 from app import models
 from app.config import settings
 import uuid
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,6 +24,15 @@ app.add_middleware(
     allow_methods=["POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print("Validation error details:", exc.errors())
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
+
 
 async def verify_token(request: Request, authorization: str = Header(default=None)):
     # Print headers for debugging
@@ -48,7 +59,18 @@ async def verify_token(request: Request, authorization: str = Header(default=Non
             detail='Invalid token'
         )
     return True
-
+    
+@app.get("/health")
+async def health_check():
+    try:
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+    finally:
+        db.close()
+        
 @app.options("/hackrx/run")
 async def hackrx_run_options():
     return {
@@ -59,6 +81,11 @@ async def hackrx_run_options():
 
 @app.post("/hackrx/run", response_model=RunResponse)  # Added POST decorator and response_model
 async def hackrx_run(request: Request, req: RunRequest):
+    # Add debugging
+    print("Request headers:", dict(request.headers))
+    body = await request.json()
+    print("Request body:", body)
+    
     # First verify token
     await verify_token(request, request.headers.get("authorization"))
     
