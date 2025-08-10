@@ -5,6 +5,7 @@ requests
 pinecone-client
 python-docx
 PyMuPDF
+pydantic
 pydantic-settings
 pytest
 groq
