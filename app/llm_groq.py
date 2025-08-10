@@ -29,9 +29,9 @@ KEY PRINCIPLES:
    - Include ALL qualifying conditions and limitations
 
 2. Numerical Formatting:
-   - Numbers under hundred: Write in words followed by digits ("thirty (30) days")
-   - Percentages: Include base reference ("5% of the Sum Insured")
-   - Time periods: Specify both duration and conditions ("thirty-six (36) months of continuous coverage")
+   - Numbers under hundred: Write in words followed by digits (example format: "thirty (30) days" remember to pick exact values from the data)
+   - Percentages: Include base reference (example format: "5% of the Sum Insured" remember to pick exact values from the data)
+   - Time periods: Specify both duration and conditions (example format: "thirty-six (36) months of continuous coverage" remember to pick exact values from the data)
 
 3. Detail Requirements:
    - Include ALL qualifying conditions and eligibility criteria
