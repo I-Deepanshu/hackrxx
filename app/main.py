@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi import FastAPI, Depends, HTTPException, Header, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from app.schema import RunRequest, RunResponse, AnswerItem, EvidenceItem
 from app.extractors import fetch_blob_text
@@ -14,18 +14,21 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title='HackRx Retrieval API (Groq + Postgres)')
 
-# Update CORS middleware with explicit headers
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["POST", "OPTIONS"],
-    allow_headers=["*", "Authorization", "Content-Type"],
-    expose_headers=["*"],
-    max_age=86400,  # cache preflight requests for 24 hours
+    allow_methods=["POST", "OPTIONS", "GET"],
+    allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["Authorization"],
 )
 
-def verify_token(authorization: str = Header(None)):
+
+async def verify_token(request: Request, authorization: str = Header(default=None)):
+    # Print headers for debugging
+    print("All headers:", dict(request.headers))
+    print("Authorization header:", authorization)
+    
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
@@ -34,9 +37,12 @@ def verify_token(authorization: str = Header(None)):
     if not authorization.startswith('Bearer '):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail='Invalid Authorization header'
+            detail='Invalid Authorization header format. Expected: Bearer <token>'
         )
-    token = authorization.split(' ',1)[1].strip()
+    token = authorization.split(' ', 1)[1].strip()
+    print("Extracted token:", token)
+    print("Expected token:", settings.HACKRX_TEAM_TOKEN)
+    
     if token != settings.HACKRX_TEAM_TOKEN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, 
@@ -53,14 +59,18 @@ async def hackrx_run_options():
         "access-control-allow-headers": "Authorization,Content-Type"
     }
 
-@app.post('/hackrx/run', response_model=RunResponse)
+@app.options("/hackrx/run")
+async def hackrx_run_options():
+    return {"message": "OK"}
+    
 async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
+    await verify_token(request)
     doc_url = req.documents
     raw_text, pages = fetch_blob_text(doc_url)
     # Rest of your existing code remains the same
     full_text = "\n".join([p.get('text','') for p in pages])
-    doc_id = str(uuid.uuid4())[:8]
-    chunks = chunk_text_token_aware(full_text)
+    doc_url = req.documents
+    raw_text, pages = fetch_blob_text(doc_url)
     
     # persist chunks to DB
     db = SessionLocal()
