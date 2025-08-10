@@ -31,7 +31,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -e .  # Install the package in editable mode
+          pip install -e .
           
       - name: Create pytest.ini
         run: |
@@ -47,4 +47,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/hackrx
           PYTHONPATH: ${{ github.workspace }}
-        run: pytest -v  # Changed to verbose mode for better error reporting
+          # Add mock values for required settings
+          PINECONE_API_KEY: "test-api-key"
+          PINECONE_ENVIRONMENT: "test-env"
+          PINECONE_INDEX_NAME: "test-index"
+          HACKRX_TEAM_TOKEN: "test-token"
+          MAX_CHUNK_TOKENS: "500"
+          GROQ_API_KEY: "test-groq-key"
+          GROQ_MODEL: "test-model"
+        run: pytest -v
