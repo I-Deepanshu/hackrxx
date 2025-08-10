@@ -14,30 +14,50 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title='HackRx Retrieval API (Groq + Postgres)')
 
-# Add only essential CORS middleware
+# Update CORS middleware with explicit headers
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["*", "Authorization", "Content-Type"],
+    expose_headers=["*"],
+    max_age=86400,  # cache preflight requests for 24 hours
 )
 
 def verify_token(authorization: str = Header(None)):
     if not authorization:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Missing Authorization header')
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail='Missing Authorization header'
+        )
     if not authorization.startswith('Bearer '):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid Authorization header')
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail='Invalid Authorization header'
+        )
     token = authorization.split(' ',1)[1].strip()
     if token != settings.HACKRX_TEAM_TOKEN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Invalid token')
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail='Invalid token'
+        )
     return True
+
+# Add OPTIONS endpoint to handle preflight requests
+@app.options("/hackrx/run")
+async def hackrx_run_options():
+    return {
+        "allow": "POST,OPTIONS",
+        "content-type": "application/json",
+        "access-control-allow-headers": "Authorization,Content-Type"
+    }
 
 @app.post('/hackrx/run', response_model=RunResponse)
 async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
     doc_url = req.documents
     raw_text, pages = fetch_blob_text(doc_url)
-    # combine pages into text
+    # Rest of your existing code remains the same
     full_text = "\n".join([p.get('text','') for p in pages])
     doc_id = str(uuid.uuid4())[:8]
     chunks = chunk_text_token_aware(full_text)
@@ -56,9 +76,8 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
     except Exception:
         pass
     
-    # Process questions and create detailed answers first
     detailed_answers = []
-    simple_answers = []  # This will be our final response list
+    simple_answers = []
     
     for q in req.questions:
         top = query_top_k(q, k=5)
@@ -75,7 +94,6 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
         
         parsed = explain_and_answer(q, evidence)
         
-        # Create evidence items
         sources = []
         for e in evidence:
             sources.append(
@@ -89,7 +107,6 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
                 )
             )
         
-        # Create detailed answer item
         answer_item = AnswerItem(
             question=q,
             answer=parsed.get('answer', 'Not found'),
@@ -98,9 +115,6 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
             rationale=parsed.get('rationale', '')
         )
         detailed_answers.append(answer_item)
-        
-        # Add just the answer string to our simple answers list
         simple_answers.append(parsed.get('answer', 'Not found'))
     
-    # Return only the simple answers list as required by the hackathon
     return RunResponse(answers=simple_answers)
