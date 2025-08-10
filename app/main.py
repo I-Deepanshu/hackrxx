@@ -163,5 +163,5 @@ async def hackrx_run(request: Request, req: RunRequest):
     return RunResponse(answers=simple_answers)
     
     if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))  # Railway uses PORT environment variable
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+        port = int(os.getenv("PORT", 8080))  # Railway uses PORT environment variable
+        uvicorn.run("main:app", host="0.0.0.0", port=port)
