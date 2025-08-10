@@ -82,9 +82,16 @@ async def hackrx_run_options():
 @app.post("/hackrx/run", response_model=RunResponse)  # Added POST decorator and response_model
 async def hackrx_run(request: Request, req: RunRequest):
     # Add debugging
-    print("Request headers:", dict(request.headers))
-    body = await request.json()
-    print("Request body:", body)
+    print("Headers received:", dict(request.headers))
+    raw_body = await request.body()
+    print("Raw body received:", raw_body.decode())
+    
+    try:
+        # Your existing code here
+        return RunResponse(answers=simple_answers)
+    except Exception as e:
+        print(f"Error processing request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     
     # First verify token
     await verify_token(request, request.headers.get("authorization"))
