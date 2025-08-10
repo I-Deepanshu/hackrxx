@@ -101,16 +101,22 @@ async def hackrx_run(request: Request, req: RunRequest):
         db = SessionLocal()
         try:
             from app.crud import create_chunk
-            for c in chunks:
-                try:
+            successful_chunks = []
+            try:
+                for c in chunks:
                     create_chunk(db, document_url=doc_url, chunk_text=c['text'], token_count=c['token_count'])
-                except Exception as e:
-                    print(f"Error creating chunk: {str(e)}")
+                    if chunk:
+                        successful_chunks.append(c)
+                chunks = successful_chunks
+            except Exception as e:
+                print(f"Error in chunk creation batch: {str(e)}")
+                
         finally:
             db.close()
         
         try:
-            upsert_chunks(doc_id, chunks)
+            if successful_chunks:
+                upsert_chunks(doc_id, chunks)
         except Exception as e:
             print(f"Error upserting chunks: {str(e)}")
         
