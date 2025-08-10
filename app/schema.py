@@ -1,17 +1,13 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 from typing import List, Optional
-
-class RunRequest(BaseModel):
-    documents: HttpUrl
-    questions: List[str]
 
 class EvidenceItem(BaseModel):
     doc_id: str
-    page: Optional[int] = None
+    page: Optional[int]
     chunk_id: str
     text_snippet: str
     similarity_score: float
-    extracted_facts: Optional[dict] = None
+    extracted_facts: Optional[List[str]]
 
 class AnswerItem(BaseModel):
     question: str
@@ -19,6 +15,10 @@ class AnswerItem(BaseModel):
     confidence: float
     sources: List[EvidenceItem]
     rationale: str
+
+class RunRequest(BaseModel):
+    documents: str
+    questions: List[str]
 
 class RunResponse(BaseModel):
     answers: List[str]
