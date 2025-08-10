@@ -46,10 +46,10 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
     except Exception:
         pass
     
-    # Initialize answers list for simplified response
-    simple_answers = []
+    # Process questions and create detailed answers first
+    detailed_answers = []
+    simple_answers = []  # This will be our final response list
     
-    # Process each question
     for q in req.questions:
         top = query_top_k(q, k=5)
         evidence = []
@@ -63,11 +63,34 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
                 'similarity_score': float(t.get('score',0.0))
             })
         
-        # Get the parsed response
         parsed = explain_and_answer(q, evidence)
         
-        # Only add the answer string to the simple_answers list
+        # Create evidence items
+        sources = []
+        for e in evidence:
+            sources.append(
+                EvidenceItem(
+                    doc_id=e.get('doc_id'),
+                    page=None,
+                    chunk_id=e.get('chunk_id'),
+                    text_snippet=e.get('text_snippet')[:1000],
+                    similarity_score=e.get('similarity_score'),
+                    extracted_facts=parsed.get('facts') if parsed.get('facts') else None
+                )
+            )
+        
+        # Create detailed answer item
+        answer_item = AnswerItem(
+            question=q,
+            answer=parsed.get('answer', 'Not found'),
+            confidence=float(parsed.get('confidence', 0.0)),
+            sources=sources,
+            rationale=parsed.get('rationale', '')
+        )
+        detailed_answers.append(answer_item)
+        
+        # Add just the answer string to our simple answers list
         simple_answers.append(parsed.get('answer', 'Not found'))
     
-    # Return simplified response format
+    # Return only the simple answers list as required by the hackathon
     return RunResponse(answers=simple_answers)
