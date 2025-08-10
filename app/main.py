@@ -23,7 +23,7 @@ def verify_token(authorization: str = Header(None)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Invalid token')
     return True
 
-@app.post('hackrx/run', response_model=RunResponse)
+@app.post('/hackrx/run', response_model=RunResponse)
 async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
     doc_url = req.documents
     raw_text, pages = fetch_blob_text(doc_url)
@@ -31,6 +31,7 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
     full_text = "\n".join([p.get('text','') for p in pages])
     doc_id = str(uuid.uuid4())[:8]
     chunks = chunk_text_token_aware(full_text)
+    
     # persist chunks to DB
     db = SessionLocal()
     from app.crud import create_chunk
@@ -39,22 +40,34 @@ async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
             create_chunk(db, document_url=doc_url, chunk_text=c['text'], token_count=c['token_count'])
         except Exception:
             pass
+    
     try:
         upsert_chunks(doc_id, chunks)
     except Exception:
         pass
-    answers = []
+    
+    # Initialize answers list for simplified response
+    simple_answers = []
+    
+    # Process each question
     for q in req.questions:
         top = query_top_k(q, k=5)
         evidence = []
         for t in top:
             matching = next((c for c in chunks if c['chunk_id'] == t.get('chunk_id')), None)
             snippet = matching['text'] if matching else ''
-            evidence.append({'doc_id': t.get('doc_id'), 'chunk_id': t.get('chunk_id'), 'text_snippet': snippet, 'similarity_score': float(t.get('score',0.0))})
+            evidence.append({
+                'doc_id': t.get('doc_id'),
+                'chunk_id': t.get('chunk_id'),
+                'text_snippet': snippet,
+                'similarity_score': float(t.get('score',0.0))
+            })
+        
+        # Get the parsed response
         parsed = explain_and_answer(q, evidence)
-        sources=[]
-        for e in evidence:
-            sources.append(EvidenceItem(doc_id=e.get('doc_id'), page=None, chunk_id=e.get('chunk_id'), text_snippet=e.get('text_snippet')[:1000], similarity_score=e.get('similarity_score'), extracted_facts=parsed.get('facts') if parsed.get('facts') else None))
-        answer_item = AnswerItem(question=q, answer=parsed.get('answer','Not found'), confidence=float(parsed.get('confidence',0.0)), sources=sources, rationale=parsed.get('rationale',''))
-        answers.append(answer_item)
-    return RunResponse(answers=answers)
+        
+        # Only add the answer string to the simple_answers list
+        simple_answers.append(parsed.get('answer', 'Not found'))
+    
+    # Return simplified response format
+    return RunResponse(answers=simple_answers)
