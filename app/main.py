@@ -161,3 +161,7 @@ async def hackrx_run(request: Request, req: RunRequest):
         simple_answers.append(parsed.get('answer', 'Not found'))
     
     return RunResponse(answers=simple_answers)
+    
+    if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8080))  # Railway uses PORT environment variable
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
