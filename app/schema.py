@@ -21,4 +21,4 @@ class AnswerItem(BaseModel):
     rationale: str
 
 class RunResponse(BaseModel):
-    answers: List[str]  # Changed this to List[str] to match hackathon requirements
+    answers: List[str]
