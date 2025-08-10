@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi.middleware.cors import CORSMiddleware
 from app.schema import RunRequest, RunResponse, AnswerItem, EvidenceItem
 from app.extractors import fetch_blob_text
 from app.utils.chunking import chunk_text_token_aware
@@ -12,6 +13,15 @@ import uuid
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title='HackRx Retrieval API (Groq + Postgres)')
+
+# Add only essential CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def verify_token(authorization: str = Header(None)):
     if not authorization:
