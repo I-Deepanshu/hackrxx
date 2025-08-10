@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, status
-from app.schema import RunRequest, RunResponse, AnswerItem, EvidenceItem, RunResponse
+from app.schema import RunRequest, RunResponse, AnswerItem, EvidenceItem
 from app.extractors import fetch_blob_text
 from app.utils.chunking import chunk_text_token_aware
 from app.retriever import upsert_chunks, query_top_k
