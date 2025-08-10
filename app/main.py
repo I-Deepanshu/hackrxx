@@ -14,15 +14,14 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title='HackRx Retrieval API (Groq + Postgres)')
 
+# CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["POST", "OPTIONS", "GET"],
-    allow_headers=["Authorization", "Content-Type"],
-    expose_headers=["Authorization"],
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["*"],
 )
-
 
 async def verify_token(request: Request, authorization: str = Header(default=None)):
     # Print headers for debugging
@@ -50,7 +49,6 @@ async def verify_token(request: Request, authorization: str = Header(default=Non
         )
     return True
 
-# Add OPTIONS endpoint to handle preflight requests
 @app.options("/hackrx/run")
 async def hackrx_run_options():
     return {
@@ -59,32 +57,33 @@ async def hackrx_run_options():
         "access-control-allow-headers": "Authorization,Content-Type"
     }
 
-@app.options("/hackrx/run")
-async def hackrx_run_options():
-    return {"message": "OK"}
+@app.post("/hackrx/run", response_model=RunResponse)  # Added POST decorator and response_model
+async def hackrx_run(request: Request, req: RunRequest):
+    # First verify token
+    await verify_token(request, request.headers.get("authorization"))
     
-async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
-    await verify_token(request)
     doc_url = req.documents
     raw_text, pages = fetch_blob_text(doc_url)
-    # Rest of your existing code remains the same
     full_text = "\n".join([p.get('text','') for p in pages])
-    doc_url = req.documents
-    raw_text, pages = fetch_blob_text(doc_url)
+    doc_id = str(uuid.uuid4())[:8]
+    chunks = chunk_text_token_aware(full_text)
     
     # persist chunks to DB
     db = SessionLocal()
-    from app.crud import create_chunk
-    for c in chunks:
-        try:
-            create_chunk(db, document_url=doc_url, chunk_text=c['text'], token_count=c['token_count'])
-        except Exception:
-            pass
+    try:
+        from app.crud import create_chunk
+        for c in chunks:
+            try:
+                create_chunk(db, document_url=doc_url, chunk_text=c['text'], token_count=c['token_count'])
+            except Exception as e:
+                print(f"Error creating chunk: {str(e)}")
+    finally:
+        db.close()
     
     try:
         upsert_chunks(doc_id, chunks)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error upserting chunks: {str(e)}")
     
     detailed_answers = []
     simple_answers = []
