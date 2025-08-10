@@ -23,7 +23,7 @@ def verify_token(authorization: str = Header(None)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Invalid token')
     return True
 
-@app.post('/api/v1/hackrx/run', response_model=RunResponse)
+@app.post('hackrx/run', response_model=RunResponse)
 async def hackrx_run(req: RunRequest, ok: bool = Depends(verify_token)):
     doc_url = req.documents
     raw_text, pages = fetch_blob_text(doc_url)
